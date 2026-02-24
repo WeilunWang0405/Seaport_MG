@@ -211,8 +211,9 @@ class TopologyView(QGraphicsView):
         self.bus_right_text = {}  # bus_id -> QGraphicsTextItem (V + theta)
 
         self.DEV_NAME_ALIAS = {
-            "Reefer_group": "Tugboat Chargers",
-            "Reefer": "Tugboat Chargers",
+            "Reefer_group": "Tugboat Charger #1",
+            "Reefer": "Tugboat Charger #1",
+            "Cold-Ironing": "Tugboat Charger #2",
         }
         # 线路潮流文字离线路的距离（像素），越大越远
         self.PFLOW_TEXT_OFFSET = -35
@@ -361,7 +362,7 @@ class TopologyView(QGraphicsView):
                 if (
                     row2_left is not None
                     and bid == row2_left
-                    and dev_name in ("Reefer", "Tugboat Chargers")
+                    and dev_name in ("Reefer", "Tugboat Chargers", "Tugboat Charger #1")
                 ):
                     side = "up"
                     lr = "left"
@@ -643,11 +644,11 @@ class TopologyView(QGraphicsView):
                             except Exception:
                                 pval = None
 
-            elif dev_name == "Cold-Ironing":
+            elif dev_name in ("Cold-Ironing", "Tugboat Charger #2"):
                 # fallback: fixed demand sum at this bus
                 pval = float(ci_fixed_by_bus.get(bus_id, 0.0))
 
-            elif dev_name in ("Reefer", "Reefer_group", "Tugboat Chargers"):
+            elif dev_name in ("Reefer", "Reefer_group", "Tugboat Chargers", "Tugboat Charger #1", "Tugboat Charger #2"):
                 # 1) 优先使用 set_results() 里汇总好的 self._P_reefer_bus（按 result.bus_ids 顺序）
                 if getattr(self, "_P_reefer_bus", None) is not None:
                     bi = bus_to_idx.get(bus_id, None)
@@ -1771,7 +1772,7 @@ class TopologyView(QGraphicsView):
             for rf in system.reefers:
                 reefer_by_bus[rf.node_number] = reefer_by_bus.get(rf.node_number, 0) + 1
             for bid in reefer_by_bus.keys():
-                dev[bid].append("Tugboat Chargers")
+                dev[bid].append("Tugboat Charger #1")
 
         # Cold-ironing
         if getattr(system, "cold_ironing", None) is not None:
@@ -1780,7 +1781,7 @@ class TopologyView(QGraphicsView):
                 # NOTE: your task schema must include node_number
                 ci_by_bus[tk.node_number] = ci_by_bus.get(tk.node_number, 0) + 1
             for bid in ci_by_bus.keys():
-                dev[bid].append("Cold-Ironing")
+                dev[bid].append("Tugboat Charger #2")
 
         # PV
         if getattr(system, "pv_kw", None) is not None:
@@ -2072,7 +2073,7 @@ class TimeSeriesDialog(QDialog):
                 if hasattr(r, "SOC"):
                     out["SOC"] = np.asarray(r.SOC, dtype=float)
             # Cold-Ironing: use fixed demand profile if available
-            if str(name) == "Cold-Ironing":
+            if str(name) in ("Cold-Ironing", "Tugboat Charger #2"):
                 T = getattr(sys, "T", None)
                 if T is not None:
                     y = np.zeros(int(T), dtype=float)
@@ -2085,7 +2086,7 @@ class TimeSeriesDialog(QDialog):
                     out["P_fix(kW)"] = y
             # Reefer: if pre-aggregated by bus exists
             if (
-                str(name) in ("Reefer", "Reefer_group", "Tugboat Chargers")
+                str(name) in ("Reefer", "Reefer_group", "Tugboat Chargers", "Tugboat Charger #1", "Tugboat Charger #2")
                 and getattr(view, "_P_reefer_bus", None) is not None
                 and r is not None
             ):

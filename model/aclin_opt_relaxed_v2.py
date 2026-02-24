@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple, Optional
+from typing import Dict
 
 import numpy as np
 
 from data.indexer import build_indexer
-from model.devices import add_ess, add_cold_ironing
+from model.devices import add_ess
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,6 @@ def build_aclin_optimization(system, params: ACLinParams):
     Deterministic single-scenario MILP:
       - Linearized AC nodal injection equations (G,B)*V,theta
       - ESS SOC dynamics + charge/discharge split + optional binary
-      - Cold-ironing time-window power + energy constraint (from add_cold_ironing)
       - Reefers on/off power bounds + linear thermal dynamics (implicit -> linear equality)
       - Line active flow definition + thermal limit
     """
@@ -114,9 +113,26 @@ def build_aclin_optimization(system, params: ACLinParams):
     # reactive from ESS (free)
     q_ess = m.addMVar((T,), lb=-GRB.INFINITY, name="q_ess")
 
-    # Cold-ironing (IMPORTANT: match your devices.py signature)
-    p_cold_task = add_cold_ironing(m, T, dt_hours, system.cold_ironing)
-    K = 0 if p_cold_task is None else len(system.cold_ironing)
+    tugboat_demands = list(getattr(system, "tugboat_energy_demands", []) or [])
+    tugboat_groups = sorted({str(td.group) for td in tugboat_demands})
+    nTg = len(tugboat_groups)
+    if nTg > 0:
+        p_tugboat = m.addMVar((nTg, T), lb=0.0, name="p_tugboat")
+        tugboat_group_to_idx = {g: i for i, g in enumerate(tugboat_groups)}
+        for td_idx, td in enumerate(tugboat_demands):
+            g_idx = tugboat_group_to_idx[str(td.group)]
+            st = int(td.start_time)
+            en = int(td.end_time)
+            m.addConstr(
+                p_tugboat[g_idx, st:en].sum() * dt_hours == float(td.E),
+                name=f"tugboat_E[{td_idx}]",
+            )
+            m.addConstr(
+                p_tugboat[g_idx, st:en].sum() * dt_hours >= float(td.Emin),
+                name=f"tugboat_Emin[{td_idx}]",
+            )
+    else:
+        p_tugboat = None
 
     # Reefers
     nR = len(system.reefers)
@@ -190,20 +206,31 @@ def build_aclin_optimization(system, params: ACLinParams):
             bi = idx.bus_to_idx[int(rf.node_number)]
             reefers_at_bus[bi].append(r)
 
-    cold_tasks_at_bus: list[list[int]] = [[] for _ in range(nb)]
-    if K > 0:
-        for k_idx, tk in enumerate(system.cold_ironing):
-            bi = idx.bus_to_idx[int(tk.node_number)]
-            cold_tasks_at_bus[bi].append(k_idx)
+    tugboat_groups_at_bus: list[list[int]] = [[] for _ in range(nb)]
+    if nTg > 0:
+        tugboat_group_to_bus: Dict[str, int] = {}
+        reefer_buses = sorted({int(rf.node_number) for rf in getattr(system, "reefers", []) or []})
+        ci_buses = sorted({int(tk.node_number) for tk in getattr(system, "cold_ironing", []) or []})
+        for g in tugboat_groups:
+            gid = "".join(ch for ch in g if ch.isdigit())
+            if gid == "1" and len(reefer_buses) > 0:
+                tugboat_group_to_bus[g] = reefer_buses[0]
+            elif gid == "2" and len(ci_buses) > 0:
+                tugboat_group_to_bus[g] = ci_buses[0]
+            elif len(reefer_buses) > 0:
+                tugboat_group_to_bus[g] = reefer_buses[0]
+            elif len(ci_buses) > 0:
+                tugboat_group_to_bus[g] = ci_buses[0]
+            else:
+                tugboat_group_to_bus[g] = idx.bus_ids[0]
+        for g, bi_tg in tugboat_group_to_bus.items():
+            if int(bi_tg) in idx.bus_to_idx:
+                tugboat_groups_at_bus[idx.bus_to_idx[int(bi_tg)]].append(tugboat_group_to_idx[g])
 
     load_kw = np.array(system.load_kw, dtype=float)  # (nb,T)
     pv_kw = np.array(system.pv_kw, dtype=float)      # (nb,T)
 
-    # Cold fixed demand aggregated at bus/time
     cold_fix_bus = np.zeros((nb, T), dtype=float)
-    for tk in system.cold_ironing:
-        bi = idx.bus_to_idx[int(tk.node_number)]
-        cold_fix_bus[bi, int(tk.start_time):int(tk.end_time)] += float(tk.demand_fix_kw)
 
     ess_i = idx.bus_to_idx[int(system.ess.node_number)]
     S = float(params.s_base_kva)
@@ -213,9 +240,11 @@ def build_aclin_optimization(system, params: ACLinParams):
         for i in range(nb):
             # Cold ironing at bus i
             p_cold_var = 0.0
-            if K > 0 and cold_tasks_at_bus[i]:
-                p_cold_var = gp.quicksum(p_cold_task[t, k] for k in cold_tasks_at_bus[i])
             p_cold_total = p_cold_var + float(cold_fix_bus[i, t])
+
+            p_tugboat_i = 0.0
+            if nTg > 0 and tugboat_groups_at_bus[i]:
+                p_tugboat_i = gp.quicksum(p_tugboat[g_idx, t] for g_idx in tugboat_groups_at_bus[i])
 
             # Reefer at bus i
             p_rf_i = 0.0
@@ -223,7 +252,7 @@ def build_aclin_optimization(system, params: ACLinParams):
                 p_rf_i = gp.quicksum(p_rf[r, t] for r in reefers_at_bus[i])
 
             # Active injection (positive = inject to grid)
-            P_inj = float(pv_kw[i, t]) - float(load_kw[i, t]) - p_cold_total - p_rf_i
+            P_inj = float(pv_kw[i, t]) - float(load_kw[i, t]) - p_cold_total - p_rf_i - p_tugboat_i
             if i == slack_i:
                 P_inj = P_inj + p_grid[t]
             if i == ess_i:
@@ -235,7 +264,7 @@ def build_aclin_optimization(system, params: ACLinParams):
             m.addConstr(P_inj / S == rhs_p, name=f"ac_pinj[{i},{t}]")
 
             # Reactive (no base load Q in current sysdata; if you have Q later再加)
-            q_cold = params.q_over_p_ci * p_cold_total
+            q_cold = params.q_over_p_ci * (p_cold_total + p_tugboat_i)
             q_rf_ = 0.0
             if nR > 0 and reefers_at_bus[i]:
                 q_rf_ = gp.quicksum(params.q_over_p_reefer * p_rf[r, t] for r in reefers_at_bus[i])
@@ -305,8 +334,8 @@ def build_aclin_optimization(system, params: ACLinParams):
         "sV_under": sV_under,
         "sV_over": sV_over,
     }
-    if p_cold_task is not None:
-        var["p_cold_task"] = p_cold_task
+    if p_tugboat is not None:
+        var["p_tugboat"] = p_tugboat
     if nR > 0:
         var["p_rf"] = p_rf
         var["Temp"] = Temp
