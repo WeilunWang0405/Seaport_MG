@@ -1,0 +1,5 @@
+bus_id,bus_name,is_slack,base_kv,x,y
+1,GRID,1,10,0,0
+2,BERTH_A,0,10,1,0
+3,REEFER_YARD,0,10,2,0
+4,ESS_NODE,0,10,1,-1

@@ -1,0 +1,4 @@
+reefer_id,node_number,content_type,ini_temp,reefer_type,mass_kg
+R1,3,CT1,-10,RT1,22000
+R2,3,CT2,5,RT1,21000
+R3,3,CT1,-15,RT1,22500

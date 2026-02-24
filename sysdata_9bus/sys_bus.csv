@@ -1,0 +1,10 @@
+bus_id,bus_name,is_slack,base_kv,x,y
+1,GRID,1,345,0,0
+2,Cold-Ironing #1,0,345,-2,2
+3,Cold-Ironing #2,0,345,2,2
+4,ESS,0,345,0,1
+5,PV,0,345,1,1
+6,Regular #1,0,345,1,2
+7,Regular #2,0,345,0,2
+8,Regular #3,0,345,-1,2
+9,Reefer,0,345,-1,1

@@ -1,0 +1,6 @@
+task_number,node_number,start_time,end_time,demand_fix_kw,battery_demand_kwh,max_charging_power_kw,min_charging_power_kw
+1,12,1,12,300,2000,8000,100
+2,12,16,28,400,2500,8000,100
+3,12,32,44,500,2300,8000,100
+4,32,8,22,300,1700,8000,100
+5,32,34,46,400,1900,8000,100

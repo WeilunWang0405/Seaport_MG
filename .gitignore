@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# venv
+.venv/
+venv/
+*.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Your project outputs
+debug_out/
+results/
+
+# Logs
+*.log
+
+# Secrets / local config
+.env
+*.env
+config/local.*
+config/*.local.*
+config/*secret*

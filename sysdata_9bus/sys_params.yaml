@@ -1,0 +1,1 @@
+s_base_kva: 10000v_min: 0.9v_max: 1.1temp_out_c: 25q_over_p_reefer: 0.8q_over_p_ci: 0.9allow_export: trueexport_price: 0.0

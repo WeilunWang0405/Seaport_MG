@@ -1,0 +1,6 @@
+content_type,max_temp,min_temp,specific_heat_capacity_j_per_kgk
+CT1,-5,-25,2500
+CT2,10,0,3000
+CT3,-5,-25,2500
+CT4,-5,-25,2500
+CT5,10,0,3000

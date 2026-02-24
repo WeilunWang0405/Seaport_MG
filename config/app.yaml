@@ -1,0 +1,3 @@
+default_data_dir: sysdata_9bus
+default_T: 48
+default_dt_hours: 0.5

@@ -1,0 +1,10 @@
+node_number: 4
+capacity_kwh: 2000
+max_soc: 0.95
+min_soc: 0.1
+max_charging_power_kw: 800
+max_discharging_power_kw: 800
+initial_soc: 0.5
+end_soc: 0.5
+eta_ch: 0.95
+eta_dis: 0.95
