@@ -668,18 +668,19 @@ class TopologyView(QGraphicsView):
                             except Exception:
                                 pval = None
 
-            elif dev_name in ("Cold-Ironing", "Tugboat Charger #2"):
+            elif dev_name in ("Tugboat Charger #1", "Tugboat Charger #2"):
                 bi = bus_to_idx.get(bus_id, None)
                 if bi is not None and getattr(self, "_P_tugboat_bus", None) is not None:
                     try:
                         pval = float(self._P_tugboat_bus[bi, t])
                     except Exception:
                         pval = None
-                if pval is None:
-                    # fallback: fixed demand sum at this bus
-                    pval = float(ci_fixed_by_bus.get(bus_id, 0.0))
 
-            elif dev_name in ("Reefer", "Reefer_group", "Tugboat Chargers", "Tugboat Charger #1", "Tugboat Charger #2"):
+            elif dev_name in ("Cold-Ironing",):
+                # fallback: fixed demand sum at this bus
+                pval = float(ci_fixed_by_bus.get(bus_id, 0.0))
+
+            elif dev_name in ("Reefer", "Reefer_group", "Tugboat Chargers"):
                 # 1) 优先使用 set_results() 里汇总好的 self._P_reefer_bus（按 result.bus_ids 顺序）
                 if getattr(self, "_P_reefer_bus", None) is not None:
                     bi = bus_to_idx.get(bus_id, None)
@@ -1797,22 +1798,15 @@ class TopologyView(QGraphicsView):
         if getattr(system, "ess", None) is not None:
             dev[system.ess.node_number].append("ESS")
 
-        # Reefer (aggregate per bus)
-        if getattr(system, "reefers", None) is not None:
-            reefer_by_bus: Dict[int, int] = {}
-            for rf in system.reefers:
-                reefer_by_bus[rf.node_number] = reefer_by_bus.get(rf.node_number, 0) + 1
-            for bid in reefer_by_bus.keys():
-                dev[bid].append("Tugboat Charger #1")
-
-        # Cold-ironing
-        if getattr(system, "cold_ironing", None) is not None:
-            ci_by_bus: Dict[int, int] = {}
-            for tk in system.cold_ironing:
-                # NOTE: your task schema must include node_number
-                ci_by_bus[tk.node_number] = ci_by_bus.get(tk.node_number, 0) + 1
-            for bid in ci_by_bus.keys():
-                dev[bid].append("Tugboat Charger #2")
+        # Tugboat chargers (from explicit group->node mapping)
+        tg_map = dict(getattr(system, "tugboat_group_to_node", {}) or {})
+        if len(tg_map) > 0:
+            for g, bid in tg_map.items():
+                g_str = str(g).strip()
+                if g_str == "1":
+                    dev[int(bid)].append("Tugboat Charger #1")
+                elif g_str == "2":
+                    dev[int(bid)].append("Tugboat Charger #2")
 
         # PV
         if getattr(system, "pv_kw", None) is not None:
@@ -2103,27 +2097,28 @@ class TimeSeriesDialog(QDialog):
                         break
                 if hasattr(r, "SOC"):
                     out["SOC"] = np.asarray(r.SOC, dtype=float)
-            if str(name) in ("Cold-Ironing", "Tugboat Charger #2"):
+            if str(name) in ("Tugboat Charger #1", "Tugboat Charger #2"):
                 if getattr(view, "_P_tugboat_bus", None) is not None and r is not None:
                     try:
                         bi = {bid: i for i, bid in enumerate(r.bus_ids)}[bus_id]
                         out["P_tugboat(kW)"] = np.asarray(view._P_tugboat_bus[bi, :], dtype=float)
                     except Exception:
                         pass
-                if "P_tugboat(kW)" not in out:
-                    T = getattr(sys, "T", None)
-                    if T is not None:
-                        y = np.zeros(int(T), dtype=float)
-                        for task in getattr(sys, "cold_ironing", []) or []:
-                            if int(task.node_number) != int(bus_id):
-                                continue
-                            st = int(task.start_time)
-                            en = int(task.end_time)
-                            y[st:en] += float(getattr(task, "demand_fix_kw", 0.0))
-                        out["P_fix(kW)"] = y
+                return out
+            if str(name) in ("Cold-Ironing",):
+                T = getattr(sys, "T", None)
+                if T is not None:
+                    y = np.zeros(int(T), dtype=float)
+                    for task in getattr(sys, "cold_ironing", []) or []:
+                        if int(task.node_number) != int(bus_id):
+                            continue
+                        st = int(task.start_time)
+                        en = int(task.end_time)
+                        y[st:en] += float(getattr(task, "demand_fix_kw", 0.0))
+                    out["P_fix(kW)"] = y
             # Reefer: if pre-aggregated by bus exists
             if (
-                str(name) in ("Reefer", "Reefer_group", "Tugboat Chargers", "Tugboat Charger #1", "Tugboat Charger #2")
+                str(name) in ("Reefer", "Reefer_group", "Tugboat Chargers")
                 and getattr(view, "_P_reefer_bus", None) is not None
                 and r is not None
             ):
