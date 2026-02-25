@@ -138,6 +138,27 @@ def _load_tugboat_demands(
     return out
 
 
+
+def _load_tugboat_group_to_node(data_dir: Path) -> dict[str, int]:
+    map_path = data_dir / "sys.tug_charger.csv"
+    if not map_path.exists():
+        return {}
+
+    df = pd.read_csv(map_path)
+    expected = {"tugboat_charger_group", "mg_node"}
+    if not expected.issubset(set(df.columns)):
+        raise ValueError("sys.tug_charger.csv must contain columns: tugboat_charger_group, mg_node")
+
+    out: dict[str, int] = {}
+    for _, row in df.iterrows():
+        gid = str(row["tugboat_charger_group"]).strip()
+        if gid.endswith(".0"):
+            gid = gid[:-2]
+        node = int(row["mg_node"])
+        out[gid] = node
+        out[f"G{gid}"] = node
+    return out
+
 def load_system(data_dir: Path, T: int, dt_hours: float) -> SystemData:
     data_dir = Path(data_dir)
 
@@ -195,6 +216,7 @@ def load_system(data_dir: Path, T: int, dt_hours: float) -> SystemData:
     tugboat_energy_demands = _load_tugboat_demands(
         data_dir=data_dir, T=T, dt_hours=dt_hours
     )
+    tugboat_group_to_node = _load_tugboat_group_to_node(data_dir)
 
     return SystemData(
         T=T,
@@ -209,6 +231,7 @@ def load_system(data_dir: Path, T: int, dt_hours: float) -> SystemData:
         content_types=content_types,
         reefer_types=reefer_types,
         tugboat_energy_demands=tugboat_energy_demands,
+        tugboat_group_to_node=tugboat_group_to_node,
         price=price,
         params=params,
     )

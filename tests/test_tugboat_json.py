@@ -61,6 +61,11 @@ eta_dis: 1.0
         "rt1,10,20,1,15\n",
     )
 
+    _write_text(
+        tmp_path / "sys.tug_charger.csv",
+        "tugboat_charger_group,mg_node\n1,2\n2,1\n",
+    )
+
     demand = [
         {
             "group": "G1",
@@ -90,3 +95,5 @@ eta_dis: 1.0
     assert td.end_time == 2
     assert td.E == 186.7
     assert td.Emin == 120.0
+    assert sysdata.tugboat_group_to_node["1"] == 2
+    assert sysdata.tugboat_group_to_node["G1"] == 2

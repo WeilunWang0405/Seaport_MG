@@ -119,6 +119,7 @@ class SystemData(BaseModel):
     content_types: Dict[str, ContentType]
     reefer_types: Dict[str, ReeferType]
     tugboat_energy_demands: List[TugboatEnergyDemand] = Field(default_factory=list)
+    tugboat_group_to_node: Dict[str, int] = Field(default_factory=dict)
     price: Optional[np.ndarray] = None
     params: Dict[str, object] = Field(default_factory=dict)
 
@@ -163,5 +164,9 @@ class SystemData(BaseModel):
                 raise ValueError("Tugboat demand energy must be non-negative.")
             if td.Emin > td.E:
                 raise ValueError("Tugboat demand requires Emin <= E.")
+
+        for g, node in self.tugboat_group_to_node.items():
+            if int(node) not in bus_ids:
+                raise ValueError(f"Tugboat group {g} maps to unknown node: {node}")
 
         return self

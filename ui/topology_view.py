@@ -459,6 +459,30 @@ class TopologyView(QGraphicsView):
 
                 self._P_reefer_bus = Pbus
 
+        self._P_tugboat_bus = None
+        if hasattr(result, "p_tugboat"):
+            try:
+                p_tugboat = np.asarray(result.p_tugboat, dtype=float)
+                if p_tugboat.ndim == 2:
+                    nb = len(result.bus_ids)
+                    T = result.T
+                    P_tg_bus = np.zeros((nb, T), dtype=float)
+                    tg_map = dict(getattr(system, "tugboat_group_to_node", {}) or {})
+                    tg_groups = sorted(
+                        {str(td.group) for td in getattr(system, "tugboat_energy_demands", []) or []}
+                    )
+                    tg_group_to_idx = {g: i for i, g in enumerate(tg_groups)}
+                    for g, bid in tg_map.items():
+                        g_str = str(g)
+                        if g_str not in tg_group_to_idx:
+                            continue
+                        g_idx = tg_group_to_idx[g_str]
+                        if 0 <= g_idx < p_tugboat.shape[0] and int(bid) in self._bus_to_i:
+                            P_tg_bus[self._bus_to_i[int(bid)], :] += p_tugboat[g_idx, :]
+                    self._P_tugboat_bus = P_tg_bus
+            except Exception:
+                self._P_tugboat_bus = None
+
     def _build_row_index(self):
         """
         根据 sys_bus 的 (x,y) 网格坐标把节点分行，并按 x 排序。
@@ -645,8 +669,15 @@ class TopologyView(QGraphicsView):
                                 pval = None
 
             elif dev_name in ("Cold-Ironing", "Tugboat Charger #2"):
-                # fallback: fixed demand sum at this bus
-                pval = float(ci_fixed_by_bus.get(bus_id, 0.0))
+                bi = bus_to_idx.get(bus_id, None)
+                if bi is not None and getattr(self, "_P_tugboat_bus", None) is not None:
+                    try:
+                        pval = float(self._P_tugboat_bus[bi, t])
+                    except Exception:
+                        pval = None
+                if pval is None:
+                    # fallback: fixed demand sum at this bus
+                    pval = float(ci_fixed_by_bus.get(bus_id, 0.0))
 
             elif dev_name in ("Reefer", "Reefer_group", "Tugboat Chargers", "Tugboat Charger #1", "Tugboat Charger #2"):
                 # 1) 优先使用 set_results() 里汇总好的 self._P_reefer_bus（按 result.bus_ids 顺序）
@@ -2072,18 +2103,24 @@ class TimeSeriesDialog(QDialog):
                         break
                 if hasattr(r, "SOC"):
                     out["SOC"] = np.asarray(r.SOC, dtype=float)
-            # Cold-Ironing: use fixed demand profile if available
             if str(name) in ("Cold-Ironing", "Tugboat Charger #2"):
-                T = getattr(sys, "T", None)
-                if T is not None:
-                    y = np.zeros(int(T), dtype=float)
-                    for task in getattr(sys, "cold_ironing", []) or []:
-                        if int(task.node_number) != int(bus_id):
-                            continue
-                        st = int(task.start_time)
-                        en = int(task.end_time)
-                        y[st:en] += float(getattr(task, "demand_fix_kw", 0.0))
-                    out["P_fix(kW)"] = y
+                if getattr(view, "_P_tugboat_bus", None) is not None and r is not None:
+                    try:
+                        bi = {bid: i for i, bid in enumerate(r.bus_ids)}[bus_id]
+                        out["P_tugboat(kW)"] = np.asarray(view._P_tugboat_bus[bi, :], dtype=float)
+                    except Exception:
+                        pass
+                if "P_tugboat(kW)" not in out:
+                    T = getattr(sys, "T", None)
+                    if T is not None:
+                        y = np.zeros(int(T), dtype=float)
+                        for task in getattr(sys, "cold_ironing", []) or []:
+                            if int(task.node_number) != int(bus_id):
+                                continue
+                            st = int(task.start_time)
+                            en = int(task.end_time)
+                            y[st:en] += float(getattr(task, "demand_fix_kw", 0.0))
+                        out["P_fix(kW)"] = y
             # Reefer: if pre-aggregated by bus exists
             if (
                 str(name) in ("Reefer", "Reefer_group", "Tugboat Chargers", "Tugboat Charger #1", "Tugboat Charger #2")

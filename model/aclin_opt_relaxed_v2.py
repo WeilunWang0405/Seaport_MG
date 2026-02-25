@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
 
 import numpy as np
 
@@ -208,24 +207,14 @@ def build_aclin_optimization(system, params: ACLinParams):
 
     tugboat_groups_at_bus: list[list[int]] = [[] for _ in range(nb)]
     if nTg > 0:
-        tugboat_group_to_bus: Dict[str, int] = {}
-        reefer_buses = sorted({int(rf.node_number) for rf in getattr(system, "reefers", []) or []})
-        ci_buses = sorted({int(tk.node_number) for tk in getattr(system, "cold_ironing", []) or []})
+        tugboat_group_to_bus = dict(getattr(system, "tugboat_group_to_node", {}) or {})
         for g in tugboat_groups:
-            gid = "".join(ch for ch in g if ch.isdigit())
-            if gid == "1" and len(reefer_buses) > 0:
-                tugboat_group_to_bus[g] = reefer_buses[0]
-            elif gid == "2" and len(ci_buses) > 0:
-                tugboat_group_to_bus[g] = ci_buses[0]
-            elif len(reefer_buses) > 0:
-                tugboat_group_to_bus[g] = reefer_buses[0]
-            elif len(ci_buses) > 0:
-                tugboat_group_to_bus[g] = ci_buses[0]
-            else:
-                tugboat_group_to_bus[g] = idx.bus_ids[0]
-        for g, bi_tg in tugboat_group_to_bus.items():
-            if int(bi_tg) in idx.bus_to_idx:
-                tugboat_groups_at_bus[idx.bus_to_idx[int(bi_tg)]].append(tugboat_group_to_idx[g])
+            if str(g) not in tugboat_group_to_bus:
+                raise ValueError(f"Missing tugboat group->node mapping for group: {g}")
+            bi_tg = int(tugboat_group_to_bus[str(g)])
+            if bi_tg not in idx.bus_to_idx:
+                raise ValueError(f"Tugboat group {g} maps to unknown bus: {bi_tg}")
+            tugboat_groups_at_bus[idx.bus_to_idx[bi_tg]].append(tugboat_group_to_idx[g])
 
     load_kw = np.array(system.load_kw, dtype=float)  # (nb,T)
     pv_kw = np.array(system.pv_kw, dtype=float)      # (nb,T)
