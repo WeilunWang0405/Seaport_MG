@@ -63,6 +63,16 @@ def _time_to_index(ts: datetime, t0: datetime, dt_hours: float) -> int:
     return int(math.floor((ts - t0).total_seconds() / dt_seconds + 1e-9))
 
 
+def _normalize_tugboat_group(raw) -> str:
+    g = str(raw).strip()
+    if g.endswith(".0"):
+        g = g[:-2]
+    digits = "".join(ch for ch in g if ch.isdigit())
+    if digits == "":
+        raise ValueError(f"Invalid tugboat_charger_group/group: {raw}")
+    return digits
+
+
 def _load_tugboat_demands(
     data_dir: Path, T: int, dt_hours: float
 ) -> list[TugboatEnergyDemand]:
@@ -103,8 +113,10 @@ def _load_tugboat_demands(
     out: list[TugboatEnergyDemand] = []
 
     for idx, (drow, erow) in enumerate(zip(parsed_demand, parsed_emin)):
-        key = (str(drow.get("group")), drow.get("tstart"), drow.get("tend"))
-        key_e = (str(erow.get("group")), erow.get("tstart"), erow.get("tend"))
+        g_d = _normalize_tugboat_group(drow.get("group"))
+        g_e = _normalize_tugboat_group(erow.get("group"))
+        key = (g_d, drow.get("tstart"), drow.get("tend"))
+        key_e = (g_e, erow.get("tstart"), erow.get("tend"))
         if key != key_e:
             raise ValueError(
                 f"Mismatch between tugboat JSON files at row {idx}: {key} != {key_e}"
@@ -119,7 +131,7 @@ def _load_tugboat_demands(
 
         out.append(
             TugboatEnergyDemand(
-                group=str(drow["group"]),
+                group=g_d,
                 tstart=drow["tstart"],
                 tend=drow["tend"],
                 start_time=start_time,
@@ -151,12 +163,9 @@ def _load_tugboat_group_to_node(data_dir: Path) -> dict[str, int]:
 
     out: dict[str, int] = {}
     for _, row in df.iterrows():
-        gid = str(row["tugboat_charger_group"]).strip()
-        if gid.endswith(".0"):
-            gid = gid[:-2]
+        gid = _normalize_tugboat_group(row["tugboat_charger_group"])
         node = int(row["mg_node"])
         out[gid] = node
-        out[f"G{gid}"] = node
     return out
 
 def load_system(data_dir: Path, T: int, dt_hours: float) -> SystemData:

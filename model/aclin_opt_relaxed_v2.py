@@ -207,29 +207,11 @@ def build_aclin_optimization(system, params: ACLinParams):
 
     tugboat_groups_at_bus: list[list[int]] = [[] for _ in range(nb)]
     if nTg > 0:
-        raw_map = dict(getattr(system, "tugboat_group_to_node", {}) or {})
-        tugboat_group_to_bus = {}
-        for k, v in raw_map.items():
-            key = str(k).strip()
-            tugboat_group_to_bus[key] = int(v)
-            tugboat_group_to_bus[key.upper()] = int(v)
-            digits = "".join(ch for ch in key if ch.isdigit())
-            if digits:
-                tugboat_group_to_bus[digits] = int(v)
-                tugboat_group_to_bus[f"G{digits}"] = int(v)
+        tugboat_group_to_bus = dict(getattr(system, "tugboat_group_to_node", {}) or {})
         for g in tugboat_groups:
-            g_key = str(g).strip()
-            g_digits = "".join(ch for ch in g_key if ch.isdigit())
-            candidates = [g_key, g_key.upper()]
-            if g_digits:
-                candidates.extend([g_digits, f"G{g_digits}"])
-            bi_tg = None
-            for cand in candidates:
-                if cand in tugboat_group_to_bus:
-                    bi_tg = int(tugboat_group_to_bus[cand])
-                    break
-            if bi_tg is None:
+            if str(g) not in tugboat_group_to_bus:
                 raise ValueError(f"Missing tugboat group->node mapping for group: {g}")
+            bi_tg = int(tugboat_group_to_bus[str(g)])
             if bi_tg not in idx.bus_to_idx:
                 raise ValueError(f"Tugboat group {g} maps to unknown bus: {bi_tg}")
             tugboat_groups_at_bus[idx.bus_to_idx[bi_tg]].append(tugboat_group_to_idx[g])

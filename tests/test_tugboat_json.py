@@ -68,7 +68,7 @@ eta_dis: 1.0
 
     demand = [
         {
-            "group": "G1",
+            "group": "1",
             "tstart": "2026-02-24T08:00:00+08:00",
             "tend": "2026-02-24T10:00:00+08:00",
             "E": 186.7,
@@ -76,7 +76,7 @@ eta_dis: 1.0
     ]
     emin = [
         {
-            "group": "G1",
+            "group": "1",
             "tstart": "2026-02-24T08:00:00+08:00",
             "tend": "2026-02-24T10:00:00+08:00",
             "Emin": 120.0,
@@ -90,10 +90,9 @@ eta_dis: 1.0
     sysdata = load_system(tmp_path, T=4, dt_hours=1.0)
     assert len(sysdata.tugboat_energy_demands) == 1
     td = sysdata.tugboat_energy_demands[0]
-    assert td.group == "G1"
+    assert td.group == "1"
     assert td.start_time == 0
     assert td.end_time == 2
     assert td.E == 186.7
     assert td.Emin == 120.0
     assert sysdata.tugboat_group_to_node["1"] == 2
-    assert sysdata.tugboat_group_to_node["G1"] == 2

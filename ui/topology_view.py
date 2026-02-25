@@ -474,17 +474,9 @@ class TopologyView(QGraphicsView):
                     tg_group_to_idx = {g: i for i, g in enumerate(tg_groups)}
                     for g, bid in tg_map.items():
                         g_str = str(g).strip()
-                        g_digits = "".join(ch for ch in g_str if ch.isdigit())
-                        candidates = [g_str, g_str.upper()]
-                        if g_digits:
-                            candidates.extend([g_digits, f"G{g_digits}"])
-                        g_idx = None
-                        for cand in candidates:
-                            if cand in tg_group_to_idx:
-                                g_idx = tg_group_to_idx[cand]
-                                break
-                        if g_idx is None:
+                        if g_str not in tg_group_to_idx:
                             continue
+                        g_idx = tg_group_to_idx[g_str]
                         if 0 <= g_idx < p_tugboat.shape[0] and int(bid) in self._bus_to_i:
                             P_tg_bus[self._bus_to_i[int(bid)], :] += p_tugboat[g_idx, :]
                     self._P_tugboat_bus = P_tg_bus
