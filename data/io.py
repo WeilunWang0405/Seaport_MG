@@ -115,18 +115,22 @@ def _load_tugboat_demands(
     for idx, (drow, erow) in enumerate(zip(parsed_demand, parsed_emin)):
         g_d = _normalize_tugboat_group(drow.get("group"))
         g_e = _normalize_tugboat_group(erow.get("group"))
-        key = (g_d, drow.get("tstart"), drow.get("tend"))
-        key_e = (g_e, erow.get("tstart"), erow.get("tend"))
-        if key != key_e:
+        if g_d != g_e:
             raise ValueError(
-                f"Mismatch between tugboat JSON files at row {idx}: {key} != {key_e}"
+                f"Mismatch between tugboat JSON files at row {idx}: group {g_d} != {g_e}"
             )
 
         start_time = _time_to_index(drow["tstart"], t0=t0, dt_hours=dt_hours)
         end_time = _time_to_index(drow["tend"], t0=t0, dt_hours=dt_hours)
+        start_time_emin = _time_to_index(erow["tstart"], t0=t0, dt_hours=dt_hours)
+        end_time_emin = _time_to_index(erow["tend"], t0=t0, dt_hours=dt_hours)
         if end_time <= start_time:
             raise ValueError(
-                f"Invalid tugboat window at row {idx}: tend must be after tstart."
+                f"Invalid tugboat E window at row {idx}: tend must be after tstart."
+            )
+        if end_time_emin <= start_time_emin:
+            raise ValueError(
+                f"Invalid tugboat Emin window at row {idx}: tend must be after tstart."
             )
 
         out.append(
@@ -134,8 +138,12 @@ def _load_tugboat_demands(
                 group=g_d,
                 tstart=drow["tstart"],
                 tend=drow["tend"],
+                tstart_emin=erow["tstart"],
+                tend_emin=erow["tend"],
                 start_time=start_time,
                 end_time=end_time,
+                start_time_emin=start_time_emin,
+                end_time_emin=end_time_emin,
                 E=float(drow["E"]),
                 Emin=float(erow["Emin"]),
             )
@@ -144,7 +152,11 @@ def _load_tugboat_demands(
     for td in out:
         if td.end_time > T:
             raise ValueError(
-                f"Tugboat demand window exceeds horizon T={T}: {td.group} [{td.start_time}, {td.end_time})"
+                f"Tugboat E window exceeds horizon T={T}: {td.group} [{td.start_time}, {td.end_time})"
+            )
+        if td.end_time_emin > T:
+            raise ValueError(
+                f"Tugboat Emin window exceeds horizon T={T}: {td.group} [{td.start_time_emin}, {td.end_time_emin})"
             )
 
     return out

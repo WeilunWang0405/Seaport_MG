@@ -98,8 +98,12 @@ class TugboatEnergyDemand(BaseModel):
     group: str
     tstart: datetime
     tend: datetime
+    tstart_emin: datetime
+    tend_emin: datetime
     start_time: int
     end_time: int
+    start_time_emin: int
+    end_time_emin: int
     E: float
     Emin: float
 
@@ -160,6 +164,8 @@ class SystemData(BaseModel):
         for td in self.tugboat_energy_demands:
             if not (0 <= td.start_time < td.end_time <= self.T):
                 raise ValueError("Tugboat demand start/end_time out of range.")
+            if not (0 <= td.start_time_emin < td.end_time_emin <= self.T):
+                raise ValueError("Tugboat Emin start/end_time out of range.")
             if td.Emin < 0 or td.E < 0:
                 raise ValueError("Tugboat demand energy must be non-negative.")
             if td.Emin > td.E:

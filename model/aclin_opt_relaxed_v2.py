@@ -122,12 +122,14 @@ def build_aclin_optimization(system, params: ACLinParams):
             g_idx = tugboat_group_to_idx[str(td.group)]
             st = int(td.start_time)
             en = int(td.end_time)
+            st_emin = int(td.start_time_emin)
+            en_emin = int(td.end_time_emin)
             m.addConstr(
                 p_tugboat[g_idx, st:en].sum() * dt_hours == float(td.E),
                 name=f"tugboat_E[{td_idx}]",
             )
             m.addConstr(
-                p_tugboat[g_idx, st:en].sum() * dt_hours >= float(td.Emin),
+                p_tugboat[g_idx, st_emin:en_emin].sum() * dt_hours >= float(td.Emin),
                 name=f"tugboat_Emin[{td_idx}]",
             )
     else:

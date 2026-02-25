@@ -78,7 +78,7 @@ eta_dis: 1.0
         {
             "group": "1",
             "tstart": "2026-02-24T08:00:00+08:00",
-            "tend": "2026-02-24T10:00:00+08:00",
+            "tend": "2026-02-24T11:00:00+08:00",
             "Emin": 120.0,
         }
     ]
@@ -95,4 +95,6 @@ eta_dis: 1.0
     assert td.end_time == 2
     assert td.E == 186.7
     assert td.Emin == 120.0
+    assert td.start_time_emin == 0
+    assert td.end_time_emin == 3
     assert sysdata.tugboat_group_to_node["1"] == 2
