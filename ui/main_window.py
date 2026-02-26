@@ -270,6 +270,9 @@ class MainWindow(QMainWindow):
         time_row.addWidget(self.lblTime, 0)
         time_row.addWidget(self.sldTime, 1)
 
+        self.lblTugboatStatus = QLabel("p_tugboat @ t=0: -")
+        self.statusBar().addPermanentWidget(self.lblTugboatStatus)
+
         # ---- Toolbar: Developer Mode button ----
         tb = QToolBar("Toolbar")
         tb.setMovable(False)
@@ -615,6 +618,51 @@ class MainWindow(QMainWindow):
         self.lblCostCum.setText(f"Cumulative: {float(cc[t]):.2f} {unit}")
 
 
+    def _update_tugboat_status(self, t: int) -> None:
+        r = getattr(self.topoView, "_result", None)
+        if r is None:
+            self.lblTugboatStatus.setText(f"p_tugboat @ t={t}: -")
+            return
+
+        p_tg = None
+        for cand in ("p_tugboat", "P_tugboat", "p_tg"):
+            if hasattr(r, cand):
+                try:
+                    p_tg = np.asarray(getattr(r, cand), dtype=float)
+                    break
+                except Exception:
+                    p_tg = None
+
+        if p_tg is None or p_tg.size == 0:
+            self.lblTugboatStatus.setText(f"p_tugboat @ t={t}: -")
+            return
+
+        if p_tg.ndim == 1:
+            tt = int(max(0, min(t, p_tg.shape[0] - 1)))
+            self.lblTugboatStatus.setText(f"p_tugboat @ t={tt}: {float(p_tg[tt]):.1f} kW")
+            return
+
+        tt = int(max(0, min(t, p_tg.shape[1] - 1)))
+        vals = p_tg[:, tt]
+        gtxt = ", ".join([f"g{i+1}={float(v):.1f}" for i, v in enumerate(vals)])
+
+        node_txt = ""
+        p_bus = getattr(self.topoView, "_P_tugboat_bus", None)
+        if p_bus is not None and hasattr(r, "bus_ids"):
+            try:
+                bus_ids = list(getattr(r, "bus_ids"))
+                idx = {bid: i for i, bid in enumerate(bus_ids)}
+                parts = []
+                for node in (3, 9):
+                    if node in idx:
+                        parts.append(f"N{node}={float(p_bus[idx[node], tt]):.1f}")
+                if parts:
+                    node_txt = " | " + ", ".join(parts)
+            except Exception:
+                node_txt = ""
+
+        self.lblTugboatStatus.setText(f"p_tugboat @ t={tt}: {gtxt}{node_txt} kW")
+
     # --------------------------- Time slider ---------------------------
     def _on_time_changed(self, t: int) -> None:
         self.lblTime.setText(f"t={t+1}")
@@ -628,8 +676,10 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        # NEW: update left cost panel
-        self._update_cost_panel(int(t))
+        try:
+            self._update_tugboat_status(int(t))
+        except Exception:
+            self.lblTugboatStatus.setText(f"p_tugboat @ t={t}: -")
 
     # --------------------------- Misc helpers ---------------------------
     def _browse_dir(self) -> None:

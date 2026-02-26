@@ -9,18 +9,25 @@ from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
 from PySide6.QtGui import QPen, QBrush, QPolygonF, QPainterPath, QPainter, QFont, QColor
 
 from PySide6.QtWidgets import (
-    QGraphicsView, QGraphicsScene,
-    QGraphicsLineItem, QGraphicsPathItem,
-    QGraphicsTextItem, QGraphicsPolygonItem,
-    QGraphicsRectItem, QGraphicsEllipseItem,
-    QDialog, QVBoxLayout, QLabel
+    QGraphicsView,
+    QGraphicsScene,
+    QGraphicsLineItem,
+    QGraphicsPathItem,
+    QGraphicsTextItem,
+    QGraphicsPolygonItem,
+    QGraphicsRectItem,
+    QGraphicsEllipseItem,
+    QDialog,
+    QVBoxLayout,
+    QLabel,
 )
 import math
-from PySide6.QtCore import QPointF
+
 
 # ---------------- interactive graphics items ----------------
 class _InteractiveMixin:
     """Small helper to attach an object identity and a double-click callback."""
+
     def __init__(self, object_type: str, object_id, on_dbl_click=None):
         # super().__init__()
         self._object_type = object_type
@@ -35,15 +42,20 @@ class _InteractiveMixin:
                 pass
         event.accept()
 
+
 class InteractiveRectItem(_InteractiveMixin, QGraphicsRectItem):
     def __init__(self, rect: QRectF, object_type: str, object_id, on_dbl_click=None):
         QGraphicsRectItem.__init__(self, rect)
         _InteractiveMixin.__init__(self, object_type, object_id, on_dbl_click)
 
+
 class InteractivePathItem(_InteractiveMixin, QGraphicsPathItem):
-    def __init__(self, path: QPainterPath, object_type: str, object_id, on_dbl_click=None):
+    def __init__(
+        self, path: QPainterPath, object_type: str, object_id, on_dbl_click=None
+    ):
         QGraphicsPathItem.__init__(self, path)
         _InteractiveMixin.__init__(self, object_type, object_id, on_dbl_click)
+
 
 class InteractiveTextItem(_InteractiveMixin, QGraphicsTextItem):
     def __init__(self, text: str, object_type: str, object_id, on_dbl_click=None):
@@ -119,16 +131,16 @@ class TopologyView(QGraphicsView):
         # =======================
         #  Layout knobs (你要改间距就改这里)
         # =======================
-        self.X_STEP = 520     # 水平节点间距（越大越“展开”，越不乱，但fitInView会更缩小）
-        self.Y_STEP = 400     # 垂直层间距（越大越不乱）
+        self.X_STEP = 520  # 水平节点间距（越大越“展开”，越不乱，但fitInView会更缩小）
+        self.Y_STEP = 400  # 垂直层间距（越大越不乱）
 
         # busbar style
-        self.BUSBAR_LEN = 180   # 母线长度（截图中是比较长的）
+        self.BUSBAR_LEN = 180  # 母线长度（截图中是比较长的）
         self.BUSBAR_W = 10
 
         # edge style
         self.EDGE_W = 2
-        self.TRACK_STEP = 18    # 线路避让偏移（并行段错开）
+        self.TRACK_STEP = 18  # 线路避让偏移（并行段错开）
 
         # slack outgoing “same drop then go sideways”
         self.SLACK_DROP = 55
@@ -138,8 +150,8 @@ class TopologyView(QGraphicsView):
         self.DEV_BOX_W = 160
         self.DEV_BOX_H = 80
         self.DEV_GAP = 8
-        self.DEV_OFFSET = 120          # 设备框离母线的垂直距离（你觉得长就减小）
-        self.DEV_SHIFT_STEP = 40      # 设备框重叠时，向外“推开”的步长
+        self.DEV_OFFSET = 120  # 设备框离母线的垂直距离（你觉得长就减小）
+        self.DEV_SHIFT_STEP = 40  # 设备框重叠时，向外“推开”的步长
         self.DEV_BOX_VOFFSET = 30
 
         # load arrow style (elbow)
@@ -169,10 +181,14 @@ class TopologyView(QGraphicsView):
         self.FONT_DEVICE = 20  # device box text
         self.FONT_LOAD = 20  # load label text (if any)
 
-        self.load_text: Dict[int, QGraphicsTextItem] = {}  # bus_id -> load label text item
+        self.load_text: Dict[
+            int, QGraphicsTextItem
+        ] = {}  # bus_id -> load label text item
         self._bus_index: Dict[int, int] = {}  # bus_id -> row index in load/pv matrices
 
-        self._slack_trunk_child = None  # the "main downward" child of slack (draw from center)
+        self._slack_trunk_child = (
+            None  # the "main downward" child of slack (draw from center)
+        )
 
         # ---- bus side info box (name + V + theta) ----
         self.BUS_INFO_BG = QColor(235, 235, 235)  # 浅灰背景
@@ -183,15 +199,21 @@ class TopologyView(QGraphicsView):
         self.BUS_INFO_OFFSET_X = 12.0  # 框距离母线右端的水平距离
         self.BUS_INFO_OFFSET_Y = -6.0  # 竖直微调：负数=向上
 
-        self.bus_info_box: Dict[int, QGraphicsPathItem] = {}  # bus_id -> rounded rect background
-        self.bus_info_text: Dict[int, QGraphicsTextItem] = {}  # bus_id -> text inside box
+        self.bus_info_box: Dict[
+            int, QGraphicsPathItem
+        ] = {}  # bus_id -> rounded rect background
+        self.bus_info_text: Dict[
+            int, QGraphicsTextItem
+        ] = {}  # bus_id -> text inside box
         self.bus_disp_name: Dict[int, str] = {}  # bus_id -> display name (fixed)
 
         self.bus_left_text = {}  # bus_id -> QGraphicsTextItem (name + id)
         self.bus_right_text = {}  # bus_id -> QGraphicsTextItem (V + theta)
 
         self.DEV_NAME_ALIAS = {
-            "Reefer_group": "Reefer",
+            "Reefer_group": "Tugboat Charger #1",
+            "Reefer": "Tugboat Charger #1",
+            "Cold-Ironing": "Tugboat Charger #2",
         }
         # 线路潮流文字离线路的距离（像素），越大越远
         self.PFLOW_TEXT_OFFSET = -35
@@ -256,7 +278,9 @@ class TopologyView(QGraphicsView):
         self.clear()
 
         # ---- slack/grid bus ----
-        slack_candidates = [b.bus_id for b in system.buses if int(getattr(b, "is_slack", 0)) == 1]
+        slack_candidates = [
+            b.bus_id for b in system.buses if int(getattr(b, "is_slack", 0)) == 1
+        ]
         if not slack_candidates:
             raise ValueError("No slack bus found in sys_bus.csv (is_slack=1).")
         self._slack_bus = slack_candidates[0]
@@ -265,8 +289,9 @@ class TopologyView(QGraphicsView):
         self._edge_keys = [(ln.from_bus, ln.to_bus) for ln in system.lines]
 
         from collections import defaultdict
+
         adj = defaultdict(list)
-        for (u, v) in self._edge_keys:
+        for u, v in self._edge_keys:
             adj[u].append(v)
             adj[v].append(u)
         self._adj = dict(adj)
@@ -283,7 +308,7 @@ class TopologyView(QGraphicsView):
         self._draw_hv_grid_and_transformer(self._slack_bus)
 
         # ---- draw edges behind busbars ----
-        for (u, v) in self._edge_keys:
+        for u, v in self._edge_keys:
             self._draw_edge_routed(u, v)
 
         # ---- draw busbars ----
@@ -307,13 +332,17 @@ class TopologyView(QGraphicsView):
         row3_no_load = set()
         row3_center_load = set()
         row3_fifth = None
-        if len(row3) >= 1: row3_no_load.add(row3[0])  # 第1不画load
-        if len(row3) >= 4: row3_no_load.add(row3[3])  # 第4不画load
+        if len(row3) >= 1:
+            row3_no_load.add(row3[0])  # 第1不画load
+        if len(row3) >= 4:
+            row3_no_load.add(row3[3])  # 第4不画load
         if len(row3) >= 5:
             row3_no_load.add(row3[4])  # 第5不画load
             row3_fifth = row3[4]
-        if len(row3) >= 2: row3_center_load.add(row3[1])  # 第2 load从中点
-        if len(row3) >= 3: row3_center_load.add(row3[2])  # 第3 load从中点
+        if len(row3) >= 2:
+            row3_center_load.add(row3[1])  # 第2 load从中点
+        if len(row3) >= 3:
+            row3_center_load.add(row3[2])  # 第3 load从中点
 
         for b in system.buses:
             bid = b.bus_id
@@ -330,7 +359,11 @@ class TopologyView(QGraphicsView):
                 arrow_to_bus = False
 
                 # (4) 第二行左1节点：Reefer 从母线中点向上引出
-                if row2_left is not None and bid == row2_left and dev_name == "Reefer":
+                if (
+                    row2_left is not None
+                    and bid == row2_left
+                    and dev_name in ("Reefer", "Tugboat Chargers", "Tugboat Charger #1")
+                ):
                     side = "up"
                     lr = "left"
                     anchor_frac = 0.0
@@ -343,16 +376,23 @@ class TopologyView(QGraphicsView):
                     arrow_to_bus = True
 
                 # (7) 第三行第5节点：Cold-Ironing 从右1/4点向下引出（设备放右侧）
-                if row3_fifth is not None and bid == row3_fifth and dev_name == "Cold-Ironing":
+                if (
+                    row3_fifth is not None
+                    and bid == row3_fifth
+                    and dev_name == "Cold-Ironing"
+                ):
                     side = "down"
                     lr = "right"
                     anchor_frac = 0.5
 
                 self._draw_device_box(
-                    bid, disp_name, k,
-                    side=side, lr=lr,
+                    bid,
+                    disp_name,
+                    k,
+                    side=side,
+                    lr=lr,
                     anchor_frac=anchor_frac,
-                    arrow_toward_bus=arrow_to_bus
+                    arrow_toward_bus=arrow_to_bus,
                 )
 
             # -------- load arrows --------
@@ -376,7 +416,10 @@ class TopologyView(QGraphicsView):
             self._draw_load_arrow(bid, anchor_frac=frac)
 
         # ---- fit view (保持你截图那种：图在中间偏下、整体不占满) ----
-        self.fitInView(self.scene.itemsBoundingRect().adjusted(-120, -120, 120, 120), Qt.KeepAspectRatio)
+        self.fitInView(
+            self.scene.itemsBoundingRect().adjusted(-120, -120, 120, 120),
+            Qt.KeepAspectRatio,
+        )
         self._zoom = 0
 
     def set_results(self, system, result):
@@ -415,6 +458,30 @@ class TopologyView(QGraphicsView):
                         Pbus[self._bus_to_i[bid], :] += p_rf[r, :]
 
                 self._P_reefer_bus = Pbus
+
+        self._P_tugboat_bus = None
+        if hasattr(result, "p_tugboat"):
+            try:
+                p_tugboat = np.asarray(result.p_tugboat, dtype=float)
+                if p_tugboat.ndim == 2:
+                    nb = len(result.bus_ids)
+                    T = result.T
+                    P_tg_bus = np.zeros((nb, T), dtype=float)
+                    tg_map = dict(getattr(system, "tugboat_group_to_node", {}) or {})
+                    tg_groups = sorted(
+                        {str(td.group) for td in getattr(system, "tugboat_energy_demands", []) or []}
+                    )
+                    tg_group_to_idx = {g: i for i, g in enumerate(tg_groups)}
+                    for g, bid in tg_map.items():
+                        g_str = str(g).strip()
+                        if g_str not in tg_group_to_idx:
+                            continue
+                        g_idx = tg_group_to_idx[g_str]
+                        if 0 <= g_idx < p_tugboat.shape[0] and int(bid) in self._bus_to_i:
+                            P_tg_bus[self._bus_to_i[int(bid)], :] += p_tugboat[g_idx, :]
+                    self._P_tugboat_bus = P_tg_bus
+            except Exception:
+                self._P_tugboat_bus = None
 
     def _build_row_index(self):
         """
@@ -469,7 +536,6 @@ class TopologyView(QGraphicsView):
                     f"</div>"
                 )
 
-
             # voltage styling (rule: <0.95 pu -> red + slow blink; else black)
             if bid in self.bus_info_text:
                 if V < 0.95:
@@ -508,7 +574,6 @@ class TopologyView(QGraphicsView):
                 if ek in self.edge_loading_text:
                     self.edge_loading_text[ek].setPlainText("")
 
-
         # -------- update transformer loading (best-effort) --------
         if self.tx_loading_text is not None and self.tx_loading_box is not None:
             pct = None
@@ -530,7 +595,9 @@ class TopologyView(QGraphicsView):
                 col, blink = self._loading_style(pct)
                 if blink and not self._blink_phase:
                     col.setAlpha(80)
-                self.tx_loading_text.setHtml(f"<div align='center'><b>TX</b><br/>Load={pct:.0f}%</div>")
+                self.tx_loading_text.setHtml(
+                    f"<div align='center'><b>TX</b><br/>Load={pct:.0f}%</div>"
+                )
                 self.tx_loading_text.setDefaultTextColor(col)
                 self.tx_loading_box.setPen(QPen(col, 1.8))
 
@@ -552,7 +619,9 @@ class TopologyView(QGraphicsView):
                 txt.setPlainText(f"Load={val:.1f} kW")
             br = txt.boundingRect()
             if bus_id in self.load_box_item:
-                self.load_box_item[bus_id].setRect(QRectF(txt.x() - 6, txt.y() - 4, br.width() + 12, br.height() + 8))
+                self.load_box_item[bus_id].setRect(
+                    QRectF(txt.x() - 6, txt.y() - 4, br.width() + 12, br.height() + 8)
+                )
 
         # -------- update device power text --------
         pv_mat = getattr(self._system, "pv_kw", None)
@@ -564,8 +633,9 @@ class TopologyView(QGraphicsView):
                 # 假设 start_time/end_time 在文件中是 1..T（常见）
                 tt = t + 1
                 if int(task.start_time) <= tt <= int(task.end_time):
-                    ci_fixed_by_bus[task.node_number] = ci_fixed_by_bus.get(task.node_number, 0.0) + float(
-                        task.demand_fix_kw)
+                    ci_fixed_by_bus[task.node_number] = ci_fixed_by_bus.get(
+                        task.node_number, 0.0
+                    ) + float(task.demand_fix_kw)
 
         # ESS power fallback
         ess_bus = getattr(getattr(self._system, "ess", None), "node_number", None)
@@ -598,12 +668,20 @@ class TopologyView(QGraphicsView):
                             except Exception:
                                 pval = None
 
-            elif dev_name == "Cold-Ironing":
+            elif dev_name in ("Tugboat Charger #1", "Tugboat Charger #2"):
+                bi = bus_to_idx.get(bus_id, None)
+                if bi is not None and getattr(self, "_P_tugboat_bus", None) is not None:
+                    try:
+                        pval = float(self._P_tugboat_bus[bi, t])
+                    except Exception:
+                        pval = None
+
+            elif dev_name in ("Cold-Ironing",):
                 # fallback: fixed demand sum at this bus
                 pval = float(ci_fixed_by_bus.get(bus_id, 0.0))
 
-            elif dev_name in ("Reefer", "Reefer_group"):
-            # 1) 优先使用 set_results() 里汇总好的 self._P_reefer_bus（按 result.bus_ids 顺序）
+            elif dev_name in ("Reefer", "Reefer_group", "Tugboat Chargers"):
+                # 1) 优先使用 set_results() 里汇总好的 self._P_reefer_bus（按 result.bus_ids 顺序）
                 if getattr(self, "_P_reefer_bus", None) is not None:
                     bi = bus_to_idx.get(bus_id, None)
                     if bi is not None:
@@ -612,13 +690,13 @@ class TopologyView(QGraphicsView):
                         except Exception:
                             pval = None
 
-            # 2) 其次：如果 result 直接给了 P_reefer_bus，就用它
+                # 2) 其次：如果 result 直接给了 P_reefer_bus，就用它
                 elif self._result is not None and hasattr(self._result, "P_reefer_bus"):
                     mat = getattr(self._result, "P_reefer_bus")
                     bi = bus_to_idx.get(bus_id, None)
                     if bi is not None:
                         try:
-                        # 兼容 (n_bus,T) 或 (T,n_bus)
+                            # 兼容 (n_bus,T) 或 (T,n_bus)
                             if hasattr(mat, "shape") and len(mat.shape) == 2:
                                 if mat.shape[0] == len(r.bus_ids):
                                     pval = float(mat[bi, t])
@@ -633,14 +711,15 @@ class TopologyView(QGraphicsView):
                     else:
                         pval = None
 
-    # update box text (HTML) - enforce display alias
+            # update box text (HTML) - enforce display alias
             disp = self.DEV_NAME_ALIAS.get(dev_name, dev_name)
 
             if pval is None:
                 txt.setHtml(f"<div align='center'><b>{disp}</b><br/>P=? kW</div>")
             else:
-                txt.setHtml(f"<div align='center'><b>{disp}</b><br/>P={pval:.1f} kW</div>")
-
+                txt.setHtml(
+                    f"<div align='center'><b>{disp}</b><br/>P={pval:.1f} kW</div>"
+                )
 
     # ---------------- status styling helpers ----------------
     def _toggle_blink_phase(self):
@@ -665,7 +744,9 @@ class TopologyView(QGraphicsView):
     def _open_detail_window(self, object_type: str, object_id):
         """Open a small time-series window for the given object."""
         try:
-            dlg = TimeSeriesDialog(parent=self, view=self, object_type=object_type, object_id=object_id)
+            dlg = TimeSeriesDialog(
+                parent=self, view=self, object_type=object_type, object_id=object_id
+            )
             dlg.exec()
         except Exception:
             # Never crash GUI on detail failures
@@ -677,8 +758,17 @@ class TopologyView(QGraphicsView):
             return None
         # locate line object in sys_line order
         for ln in getattr(self._system, "lines", []):
-            if (int(ln.from_bus), int(ln.to_bus)) == (int(u), int(v)) or (int(ln.from_bus), int(ln.to_bus)) == (int(v), int(u)):
-                for attr in ("capacity_kw", "rate_a_kw", "thermal_limit_kw", "s_max_kw", "p_max_kw"):
+            if (int(ln.from_bus), int(ln.to_bus)) == (int(u), int(v)) or (
+                int(ln.from_bus),
+                int(ln.to_bus),
+            ) == (int(v), int(u)):
+                for attr in (
+                    "capacity_kw",
+                    "rate_a_kw",
+                    "thermal_limit_kw",
+                    "s_max_kw",
+                    "p_max_kw",
+                ):
                     if hasattr(ln, attr):
                         try:
                             val = float(getattr(ln, attr))
@@ -687,10 +777,17 @@ class TopologyView(QGraphicsView):
                         except Exception:
                             pass
                 # common: kVA rating
-                for attr in ("s_max_kva", "capacity_kva", "rate_a_kva", "thermal_limit_kva"):
+                for attr in (
+                    "s_max_kva",
+                    "capacity_kva",
+                    "rate_a_kva",
+                    "thermal_limit_kva",
+                ):
                     if hasattr(ln, attr):
                         try:
-                            val = float(getattr(ln, attr)) * 1.0  # treat kVA ~= kW for display if Q unavailable
+                            val = (
+                                float(getattr(ln, attr)) * 1.0
+                            )  # treat kVA ~= kW for display if Q unavailable
                             if val > 1e-9:
                                 return val
                         except Exception:
@@ -742,7 +839,9 @@ class TopologyView(QGraphicsView):
                 slack_x, slack_y = (0.0, 0.0)
 
             # 保存“相对 slack 的网格坐标”，用于第2/3行定位
-            self._grid_xy = {bid: (gx - slack_x, gy - slack_y) for bid, (gx, gy) in bus_xy.items()}
+            self._grid_xy = {
+                bid: (gx - slack_x, gy - slack_y) for bid, (gx, gy) in bus_xy.items()
+            }
 
             pos: Dict[int, QPointF] = {}
             for bid, (gx, gy) in self._grid_xy.items():
@@ -822,6 +921,7 @@ class TopologyView(QGraphicsView):
 
         # BFS from slack to define parent-child direction (by connectivity)
         from collections import deque
+
         slack = self._slack_bus
 
         parent = {slack: None}
@@ -861,9 +961,15 @@ class TopologyView(QGraphicsView):
             down_sorted = sorted(down, key=lambda c: self._pos[c].x())
             self._pc_slot_count[p] = len(down_sorted)
             # choose slack trunk child: the downward child closest to slack x (draw from center)
-            if self._slack_bus is not None and p == self._slack_bus and len(down_sorted) >= 1:
+            if (
+                self._slack_bus is not None
+                and p == self._slack_bus
+                and len(down_sorted) >= 1
+            ):
                 sx = self._pos[self._slack_bus].x()
-                self._slack_trunk_child = min(down_sorted, key=lambda c: abs(self._pos[c].x() - sx))
+                self._slack_trunk_child = min(
+                    down_sorted, key=lambda c: abs(self._pos[c].x() - sx)
+                )
 
             for idx, c in enumerate(down_sorted):
                 self._pc_slot[(p, c)] = idx
@@ -934,14 +1040,22 @@ class TopologyView(QGraphicsView):
         tx_w, tx_h = 140.0, 44.0
         tx_x0 = x_c + r + 18.0
         tx_y0 = y_mid - tx_h / 2.0
-        tx_box = InteractiveRectItem(QRectF(tx_x0, tx_y0, tx_w, tx_h), object_type="transformer", object_id="TX1",
-                                     on_dbl_click=self._open_detail_window)
+        tx_box = InteractiveRectItem(
+            QRectF(tx_x0, tx_y0, tx_w, tx_h),
+            object_type="transformer",
+            object_id="TX1",
+            on_dbl_click=self._open_detail_window,
+        )
         tx_box.setPen(QPen(Qt.black, 1.4))
         tx_box.setBrush(QBrush(Qt.white))
         self.scene.addItem(tx_box)
 
-        tx_txt = InteractiveTextItem("TX Load=?%", object_type="transformer", object_id="TX1",
-                                     on_dbl_click=self._open_detail_window)
+        tx_txt = InteractiveTextItem(
+            "TX Load=?%",
+            object_type="transformer",
+            object_id="TX1",
+            on_dbl_click=self._open_detail_window,
+        )
         ff = QFont()
         ff.setPointSize(18)
         ff.setBold(True)
@@ -950,7 +1064,9 @@ class TopologyView(QGraphicsView):
         tx_txt.setTextWidth(tx_w)
         tx_txt.setHtml("<div align='center'><b>TX</b><br/>Load=?%</div>")
         brt = tx_txt.boundingRect()
-        tx_txt.setPos(tx_x0 + (tx_w - brt.width()) / 2.0, tx_y0 + (tx_h - brt.height()) / 2.0)
+        tx_txt.setPos(
+            tx_x0 + (tx_w - brt.width()) / 2.0, tx_y0 + (tx_h - brt.height()) / 2.0
+        )
         self.scene.addItem(tx_txt)
 
         self.tx_loading_box = tx_box
@@ -968,22 +1084,26 @@ class TopologyView(QGraphicsView):
         self.busbar_item[bus_id] = bar
 
         # -------- side info box: NAME + V + theta (light grey rounded rect) --------
-        name = bus_name if bus_name else ("GRID" if bus_id == self._slack_bus else f"Bus {bus_id}")
+        name = (
+            bus_name
+            if bus_name
+            else ("GRID" if bus_id == self._slack_bus else f"Bus {bus_id}")
+        )
         self.bus_disp_name[bus_id] = name
 
         # text (inner)
-        info_txt = InteractiveTextItem('', object_type='bus', object_id=bus_id, on_dbl_click=self._open_detail_window)
+        info_txt = InteractiveTextItem(
+            "",
+            object_type="bus",
+            object_id=bus_id,
+            on_dbl_click=self._open_detail_window,
+        )
         info_txt.setDefaultTextColor(Qt.black)
         f = QFont()
         f.setPointSize(self.FONT_BUS_NAME)
         info_txt.setFont(f)
         info_txt.setTextWidth(float(self.BUS_INFO_TEXT_W))
-        info_txt.setHtml(
-            f"<div align='left'>"
-            f"<b>{name}</b><br/>"
-            f"V=?<br/>&theta;=?"
-            f"</div>"
-        )
+        info_txt.setHtml(f"<div align='left'><b>{name}</b><br/>V=?<br/>&theta;=?</div>")
 
         # background rounded rect (outer)
         pad = float(self.BUS_INFO_PAD)
@@ -992,8 +1112,15 @@ class TopologyView(QGraphicsView):
         box_h = float(br.height()) + 2 * pad
 
         path = QPainterPath()
-        path.addRoundedRect(QRectF(0, 0, box_w, box_h), self.BUS_INFO_RADIUS, self.BUS_INFO_RADIUS)
-        box = InteractivePathItem(path, object_type='bus', object_id=bus_id, on_dbl_click=self._open_detail_window)
+        path.addRoundedRect(
+            QRectF(0, 0, box_w, box_h), self.BUS_INFO_RADIUS, self.BUS_INFO_RADIUS
+        )
+        box = InteractivePathItem(
+            path,
+            object_type="bus",
+            object_id=bus_id,
+            on_dbl_click=self._open_detail_window,
+        )
         box.setPen(QPen(self.BUS_INFO_BORDER, 1))
         box.setBrush(QBrush(self.BUS_INFO_BG))
 
@@ -1046,7 +1173,12 @@ class TopologyView(QGraphicsView):
             off = float(self.PFLOW_TEXT_OFFSET)
             label_pos = QPointF(mid_pt.x() + off * nx_, mid_pt.y() + off * ny_)
 
-        etxt = InteractiveTextItem("P=? kW", object_type='line', object_id=(u, v), on_dbl_click=self._open_detail_window)
+        etxt = InteractiveTextItem(
+            "P=? kW",
+            object_type="line",
+            object_id=(u, v),
+            on_dbl_click=self._open_detail_window,
+        )
         etxt.setDefaultTextColor(Qt.darkBlue)
         f = QFont()
         f.setPointSize(self.FONT_EDGE)
@@ -1056,8 +1188,12 @@ class TopologyView(QGraphicsView):
         etxt.setPos(label_pos.x() - br.width() / 2.0, label_pos.y() - br.height() / 2.0)
 
         # light background box for readability + interaction
-        bg = InteractiveRectItem(QRectF(etxt.x() - 6, etxt.y() - 4, br.width() + 12, br.height() + 8),
-                                 object_type='line', object_id=(u, v), on_dbl_click=self._open_detail_window)
+        bg = InteractiveRectItem(
+            QRectF(etxt.x() - 6, etxt.y() - 4, br.width() + 12, br.height() + 8),
+            object_type="line",
+            object_id=(u, v),
+            on_dbl_click=self._open_detail_window,
+        )
         bg.setPen(QPen(QColor(210, 210, 210), 1))
         bg.setBrush(QBrush(QColor(255, 255, 255)))
         bg.setZValue(etxt.zValue() - 1)
@@ -1068,19 +1204,25 @@ class TopologyView(QGraphicsView):
         self.edge_loading_box[(u, v)] = bg
 
         # loading percent text (placed slightly below the P label)
-        ltxt = InteractiveTextItem("0%", object_type='line', object_id=(u, v), on_dbl_click=self._open_detail_window)
+        ltxt = InteractiveTextItem(
+            "0%",
+            object_type="line",
+            object_id=(u, v),
+            on_dbl_click=self._open_detail_window,
+        )
         lf = QFont()
         lf.setPointSize(self.FONT_EDGE)
         ltxt.setFont(lf)
         ltxt.setDefaultTextColor(Qt.darkBlue)
 
         lbr = ltxt.boundingRect()
-        ltxt.setPos(label_pos.x() - lbr.width() / 2.0, label_pos.y() - lbr.height() / 2.0 + br.height() + 2)
+        ltxt.setPos(
+            label_pos.x() - lbr.width() / 2.0,
+            label_pos.y() - lbr.height() / 2.0 + br.height() + 2,
+        )
 
         self.scene.addItem(ltxt)
         self.edge_loading_text[(u, v)] = ltxt
-
-
 
         f = QFont()
         f.setPointSize(self.FONT_EDGE)
@@ -1088,7 +1230,9 @@ class TopologyView(QGraphicsView):
 
         self._reserve_polyline(pts)
 
-    def _route_orth_avoid(self, u: int, v: int, p1: QPointF, p2: QPointF) -> List[QPointF]:
+    def _route_orth_avoid(
+        self, u: int, v: int, p1: QPointF, p2: QPointF
+    ) -> List[QPointF]:
         """
         Routing policy update:
           - If two buses are on the same y-level: connect via inner quarter points,
@@ -1114,16 +1258,20 @@ class TopologyView(QGraphicsView):
                     off = sgn * ((k + 1) // 2) * self.TRACK_STEP
 
                 y_mid = y_mid0 + off
-                pts = self._compress([
-                    a1,
-                    QPointF(a1.x(), y_mid),
-                    QPointF(a2.x(), y_mid),
-                    a2,
-                ])
+                pts = self._compress(
+                    [
+                        a1,
+                        QPointF(a1.x(), y_mid),
+                        QPointF(a2.x(), y_mid),
+                        a2,
+                    ]
+                )
                 if not self._polyline_overlaps(pts):
                     return pts
 
-            return self._compress([a1, QPointF(a1.x(), y_mid0), QPointF(a2.x(), y_mid0), a2])
+            return self._compress(
+                [a1, QPointF(a1.x(), y_mid0), QPointF(a2.x(), y_mid0), a2]
+            )
 
         # ---------- 2) Slack outgoing ----------
         if self._slack_bus is not None and u == self._slack_bus:
@@ -1141,12 +1289,14 @@ class TopologyView(QGraphicsView):
             end_x = self._pos[v].x()
             end_y = self._pos[v].y()
 
-            pts0 = self._compress([
-                QPointF(start_x, p1.y()),
-                QPointF(start_x, y_mid),  # first go down
-                QPointF(end_x, y_mid),  # then go sideways
-                QPointF(end_x, end_y),  # then go down/up to child
-            ])
+            pts0 = self._compress(
+                [
+                    QPointF(start_x, p1.y()),
+                    QPointF(start_x, y_mid),  # first go down
+                    QPointF(end_x, y_mid),  # then go sideways
+                    QPointF(end_x, end_y),  # then go down/up to child
+                ]
+            )
 
             if not self._polyline_overlaps(pts0):
                 return pts0
@@ -1154,12 +1304,14 @@ class TopologyView(QGraphicsView):
             # try y_mid shifts if needed
             for k in range(1, 8):
                 y_try = y_mid + k * self.TRACK_STEP
-                cand = self._compress([
-                    QPointF(start_x, p1.y()),
-                    QPointF(start_x, y_try),
-                    QPointF(end_x, y_try),
-                    QPointF(end_x, end_y),
-                ])
+                cand = self._compress(
+                    [
+                        QPointF(start_x, p1.y()),
+                        QPointF(start_x, y_try),
+                        QPointF(end_x, y_try),
+                        QPointF(end_x, end_y),
+                    ]
+                )
                 if not self._polyline_overlaps(cand):
                     return cand
 
@@ -1205,7 +1357,9 @@ class TopologyView(QGraphicsView):
                 slot = self._pc_slot.get((parent_id, child_id), 0)
                 m = self._pc_slot_count.get(parent_id, 1)
                 center = (m - 1) / 2.0
-                slot_offset = (slot - center) * (1.6 * self.TRACK_STEP)  # 1.6 can be tuned
+                slot_offset = (slot - center) * (
+                    1.6 * self.TRACK_STEP
+                )  # 1.6 can be tuned
 
                 y_mid0 = y_mid_base + slot_offset
 
@@ -1219,18 +1373,22 @@ class TopologyView(QGraphicsView):
 
                     y_mid = y_mid0 + extra
 
-                    pts = self._compress([
-                        a1,
-                        QPointF(a1.x(), y_mid),
-                        QPointF(a2.x(), y_mid),
-                        a2,
-                    ])
+                    pts = self._compress(
+                        [
+                            a1,
+                            QPointF(a1.x(), y_mid),
+                            QPointF(a2.x(), y_mid),
+                            a2,
+                        ]
+                    )
 
                     if not self._polyline_overlaps(pts):
                         return pts
 
                 # fallback without overlap avoidance
-                return self._compress([a1, QPointF(a1.x(), y_mid0), QPointF(a2.x(), y_mid0), a2])
+                return self._compress(
+                    [a1, QPointF(a1.x(), y_mid0), QPointF(a2.x(), y_mid0), a2]
+                )
 
         # ---------- 3) Non-slack default: try HV with offsets ----------
         best = self._try_route_with_offsets(p1, p2, mode="HV")
@@ -1243,7 +1401,9 @@ class TopologyView(QGraphicsView):
 
         return [p1, QPointF(p2.x(), p1.y()), p2]
 
-    def _try_route_with_offsets(self, p1: QPointF, p2: QPointF, mode: str) -> Optional[List[QPointF]]:
+    def _try_route_with_offsets(
+        self, p1: QPointF, p2: QPointF, mode: str
+    ) -> Optional[List[QPointF]]:
         if abs(p1.x() - p2.x()) < 1e-6 or abs(p1.y() - p2.y()) < 1e-6:
             pts = [p1, p2]
             if not self._polyline_overlaps(pts):
@@ -1259,10 +1419,14 @@ class TopologyView(QGraphicsView):
 
             if mode == "HV":
                 x_mid = p2.x() + off
-                pts = self._compress([p1, QPointF(x_mid, p1.y()), QPointF(x_mid, p2.y()), p2])
+                pts = self._compress(
+                    [p1, QPointF(x_mid, p1.y()), QPointF(x_mid, p2.y()), p2]
+                )
             else:
                 y_mid = p2.y() + off
-                pts = self._compress([p1, QPointF(p1.x(), y_mid), QPointF(p2.x(), y_mid), p2])
+                pts = self._compress(
+                    [p1, QPointF(p1.x(), y_mid), QPointF(p2.x(), y_mid), p2]
+                )
 
             if not self._polyline_overlaps(pts):
                 return pts
@@ -1284,8 +1448,9 @@ class TopologyView(QGraphicsView):
         res = [out[0]]
         for i in range(1, len(out) - 1):
             a, b, c = res[-1], out[i], out[i + 1]
-            if (abs(a.x() - b.x()) < 1e-6 and abs(b.x() - c.x()) < 1e-6) or \
-               (abs(a.y() - b.y()) < 1e-6 and abs(b.y() - c.y()) < 1e-6):
+            if (abs(a.x() - b.x()) < 1e-6 and abs(b.x() - c.x()) < 1e-6) or (
+                abs(a.y() - b.y()) < 1e-6 and abs(b.y() - c.y()) < 1e-6
+            ):
                 continue
             res.append(b)
         res.append(out[-1])
@@ -1317,7 +1482,9 @@ class TopologyView(QGraphicsView):
 
         return None
 
-    def _polyline_midpoint_and_dir(self, pts: List[QPointF]) -> Tuple[QPointF, Tuple[float, float]]:
+    def _polyline_midpoint_and_dir(
+        self, pts: List[QPointF]
+    ) -> Tuple[QPointF, Tuple[float, float]]:
         """
         Return geometric midpoint of a polyline and the local direction unit vector at that midpoint.
         """
@@ -1339,7 +1506,7 @@ class TopologyView(QGraphicsView):
 
         half = total / 2.0
         acc = 0.0
-        for (a, b, L) in segs:
+        for a, b, L in segs:
             if acc + L >= half:
                 t = (half - acc) / L
                 x = a.x() + t * (b.x() - a.x())
@@ -1375,7 +1542,9 @@ class TopologyView(QGraphicsView):
         return False
 
     @staticmethod
-    def _interval_overlaps(existing: List[Tuple[float, float]], seg: Tuple[float, float]) -> bool:
+    def _interval_overlaps(
+        existing: List[Tuple[float, float]], seg: Tuple[float, float]
+    ) -> bool:
         x1, x2 = seg
         if x2 - x1 < 1e-6:
             return False
@@ -1434,14 +1603,15 @@ class TopologyView(QGraphicsView):
         return "right" if x > 0 else "left"
 
     def _draw_device_box(
-            self,
-            bus_id: int,
-            name: str,
-            idx: int,
-            side: str = "down",  # "down" or "up"
-            lr: str = "left",  # "left" or "right"
-            anchor_frac: float | None = None,  # None=按lr默认；0=中点；0.5=右1/4；-0.5=左1/4
-            arrow_toward_bus: bool = False  # True: 箭头指向母线（如PV注入）
+        self,
+        bus_id: int,
+        name: str,
+        idx: int,
+        side: str = "down",  # "down" or "up"
+        lr: str = "left",  # "left" or "right"
+        anchor_frac: float
+        | None = None,  # None=按lr默认；0=中点；0.5=右1/4；-0.5=左1/4
+        arrow_toward_bus: bool = False,  # True: 箭头指向母线（如PV注入）
     ):
         c = self._pos[bus_id]
         half = self.BUSBAR_LEN / 2.0
@@ -1455,7 +1625,7 @@ class TopologyView(QGraphicsView):
 
         # ---- anchor on busbar ----
         if anchor_frac is None:
-            anchor_frac = (-0.5 if lr == "left" else 0.5)
+            anchor_frac = -0.5 if lr == "left" else 0.5
 
         ax = c.x() + anchor_frac * half
         anchor = QPointF(ax, c.y())
@@ -1471,13 +1641,23 @@ class TopologyView(QGraphicsView):
         else:
             y0 = c.y() - v0 - h - idx * (h + vgap)
 
-        rect = InteractiveRectItem(QRectF(x0, y0, w, h), object_type='device', object_id=(bus_id, name, idx), on_dbl_click=self._open_detail_window)
+        rect = InteractiveRectItem(
+            QRectF(x0, y0, w, h),
+            object_type="device",
+            object_id=(bus_id, name, idx),
+            on_dbl_click=self._open_detail_window,
+        )
         rect.setPen(QPen(Qt.black, 1.6))
         rect.setBrush(QBrush(Qt.white))
         self.scene.addItem(rect)
 
         # ---- text ----
-        txt = InteractiveTextItem('', object_type='device', object_id=(bus_id, name, idx), on_dbl_click=self._open_detail_window)
+        txt = InteractiveTextItem(
+            "",
+            object_type="device",
+            object_id=(bus_id, name, idx),
+            on_dbl_click=self._open_detail_window,
+        )
         f = QFont()
         f.setPointSize(getattr(self, "FONT_DEVICE", 11))
         f.setBold(True)
@@ -1580,7 +1760,12 @@ class TopologyView(QGraphicsView):
         self.load_arrow_head[bus_id] = head
 
         # load text to the RIGHT of arrow head
-        txt = InteractiveTextItem("Load=? kW", object_type="load", object_id=bus_id, on_dbl_click=self._open_detail_window)
+        txt = InteractiveTextItem(
+            "Load=? kW",
+            object_type="load",
+            object_id=bus_id,
+            on_dbl_click=self._open_detail_window,
+        )
         f = QFont()
         f.setPointSize(getattr(self, "FONT_LOAD", 11))
         txt.setFont(f)
@@ -1590,8 +1775,12 @@ class TopologyView(QGraphicsView):
         txt.setPos(tip.x() + 8.0, tip.y() - br.height() / 2.0)
 
         # background rectangle (load must be boxed)
-        box = InteractiveRectItem(QRectF(txt.x() - 6, txt.y() - 4, br.width() + 12, br.height() + 8),
-                                  object_type="load", object_id=bus_id, on_dbl_click=self._open_detail_window)
+        box = InteractiveRectItem(
+            QRectF(txt.x() - 6, txt.y() - 4, br.width() + 12, br.height() + 8),
+            object_type="load",
+            object_id=bus_id,
+            on_dbl_click=self._open_detail_window,
+        )
         box.setPen(QPen(Qt.black, 1.2))
         box.setBrush(QBrush(Qt.white))
         box.setZValue(txt.zValue() - 1)
@@ -1609,22 +1798,15 @@ class TopologyView(QGraphicsView):
         if getattr(system, "ess", None) is not None:
             dev[system.ess.node_number].append("ESS")
 
-        # Reefer (aggregate per bus)
-        if getattr(system, "reefers", None) is not None:
-            reefer_by_bus: Dict[int, int] = {}
-            for rf in system.reefers:
-                reefer_by_bus[rf.node_number] = reefer_by_bus.get(rf.node_number, 0) + 1
-            for bid in reefer_by_bus.keys():
-                dev[bid].append("Reefer")
-
-        # Cold-ironing
-        if getattr(system, "cold_ironing", None) is not None:
-            ci_by_bus: Dict[int, int] = {}
-            for tk in system.cold_ironing:
-                # NOTE: your task schema must include node_number
-                ci_by_bus[tk.node_number] = ci_by_bus.get(tk.node_number, 0) + 1
-            for bid in ci_by_bus.keys():
-                dev[bid].append("Cold-Ironing")
+        # Tugboat chargers (from explicit group->node mapping)
+        tg_map = dict(getattr(system, "tugboat_group_to_node", {}) or {})
+        if len(tg_map) > 0:
+            for g, bid in tg_map.items():
+                g_str = str(g).strip()
+                if g_str == "1":
+                    dev[int(bid)].append("Tugboat Charger #1")
+                elif g_str == "2":
+                    dev[int(bid)].append("Tugboat Charger #2")
 
         # PV
         if getattr(system, "pv_kw", None) is not None:
@@ -1657,7 +1839,6 @@ class TopologyView(QGraphicsView):
 
         self.scale(factor, factor)
 
-
     def mousePressEvent(self, event):
         """Middle button (or left+Space if you want later) to start panning."""
         if event.button() == Qt.MiddleButton:
@@ -1668,19 +1849,21 @@ class TopologyView(QGraphicsView):
             return
         super().mousePressEvent(event)
 
-
     def mouseMoveEvent(self, event):
         if self._panning and self._pan_start is not None:
             delta = event.pos() - self._pan_start
             self._pan_start = event.pos()
 
-            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta.x())
-            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+            self.horizontalScrollBar().setValue(
+                self.horizontalScrollBar().value() - delta.x()
+            )
+            self.verticalScrollBar().setValue(
+                self.verticalScrollBar().value() - delta.y()
+            )
 
             event.accept()
             return
         super().mouseMoveEvent(event)
-
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MiddleButton and self._panning:
@@ -1752,7 +1935,9 @@ class TopologyView(QGraphicsView):
         nx, ny = -dy / L, dx / L
 
         # 线中点（用整条 polyline 的几何中点近似：取首尾中点也行）
-        mid = QPointF((pts[0].x() + pts[-1].x()) * 0.5, (pts[0].y() + pts[-1].y()) * 0.5)
+        mid = QPointF(
+            (pts[0].x() + pts[-1].x()) * 0.5, (pts[0].y() + pts[-1].y()) * 0.5
+        )
 
         # 垂直偏移
         return QPointF(mid.x() + nx * offset, mid.y() + ny * offset)
@@ -1772,7 +1957,14 @@ class TopologyView(QGraphicsView):
 # ---------------- time-series detail dialog ----------------
 class TimeSeriesDialog(QDialog):
     """Simple, self-contained detail window. Uses matplotlib if available."""
-    def __init__(self, parent=None, view: TopologyView | None = None, object_type: str = "", object_id=None):
+
+    def __init__(
+        self,
+        parent=None,
+        view: TopologyView | None = None,
+        object_type: str = "",
+        object_id=None,
+    ):
         super().__init__(parent)
         self.setWindowTitle(f"Details: {object_type} {object_id}")
         self.resize(900, 520)
@@ -1787,10 +1979,16 @@ class TimeSeriesDialog(QDialog):
 
         # Try matplotlib
         try:
-            from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+            from matplotlib.backends.backend_qtagg import (
+                FigureCanvasQTAgg as FigureCanvas,
+            )
             from matplotlib.figure import Figure
         except Exception:
-            layout.addWidget(QLabel("Matplotlib is not available; cannot plot time-series in this environment."))
+            layout.addWidget(
+                QLabel(
+                    "Matplotlib is not available; cannot plot time-series in this environment."
+                )
+            )
             return
 
         fig = Figure()
@@ -1801,7 +1999,13 @@ class TimeSeriesDialog(QDialog):
         series = self._get_series()
 
         if not series:
-            ax.text(0.5, 0.5, "No time-series data available for this object.", ha="center", va="center")
+            ax.text(
+                0.5,
+                0.5,
+                "No time-series data available for this object.",
+                ha="center",
+                va="center",
+            )
             self._canvas.draw()
             return
 
@@ -1832,7 +2036,7 @@ class TimeSeriesDialog(QDialog):
                 if int(b.bus_id) == int(oid):
                     name = getattr(b, "bus_name", "") or ""
                     break
-            return f"Bus {oid} {('('+name+')') if name else ''}"
+            return f"Bus {oid} {('(' + name + ')') if name else ''}"
         return f"{ot}: {oid}"
 
     def _get_series(self) -> Dict[str, np.ndarray]:
@@ -1893,8 +2097,15 @@ class TimeSeriesDialog(QDialog):
                         break
                 if hasattr(r, "SOC"):
                     out["SOC"] = np.asarray(r.SOC, dtype=float)
-            # Cold-Ironing: use fixed demand profile if available
-            if str(name) == "Cold-Ironing":
+            if str(name) in ("Tugboat Charger #1", "Tugboat Charger #2"):
+                if getattr(view, "_P_tugboat_bus", None) is not None and r is not None:
+                    try:
+                        bi = {bid: i for i, bid in enumerate(r.bus_ids)}[bus_id]
+                        out["P_tugboat(kW)"] = np.asarray(view._P_tugboat_bus[bi, :], dtype=float)
+                    except Exception:
+                        pass
+                return out
+            if str(name) in ("Cold-Ironing",):
                 T = getattr(sys, "T", None)
                 if T is not None:
                     y = np.zeros(int(T), dtype=float)
@@ -1906,10 +2117,16 @@ class TimeSeriesDialog(QDialog):
                         y[st:en] += float(getattr(task, "demand_fix_kw", 0.0))
                     out["P_fix(kW)"] = y
             # Reefer: if pre-aggregated by bus exists
-            if str(name) in ("Reefer", "Reefer_group") and getattr(view, "_P_reefer_bus", None) is not None and r is not None:
+            if (
+                str(name) in ("Reefer", "Reefer_group", "Tugboat Chargers")
+                and getattr(view, "_P_reefer_bus", None) is not None
+                and r is not None
+            ):
                 try:
                     bi = {bid: i for i, bid in enumerate(r.bus_ids)}[bus_id]
-                    out["P_reefer(kW)"] = np.asarray(view._P_reefer_bus[bi, :], dtype=float)
+                    out["P_reefer(kW)"] = np.asarray(
+                        view._P_reefer_bus[bi, :], dtype=float
+                    )
                 except Exception:
                     pass
             return out
@@ -1936,7 +2153,9 @@ class TimeSeriesDialog(QDialog):
             if r is not None:
                 for attr in ("tx_loading_pct", "transformer_loading_pct"):
                     if hasattr(r, attr):
-                        out["TX Loading(%)"] = np.asarray(getattr(r, attr), dtype=float).reshape(-1)
+                        out["TX Loading(%)"] = np.asarray(
+                            getattr(r, attr), dtype=float
+                        ).reshape(-1)
                         break
             return out
 

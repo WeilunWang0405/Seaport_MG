@@ -39,6 +39,7 @@ python main.py
 - `sys_ess.yaml`: ESS parameters
 - `sys_cold_ironing.csv`: cold-ironing tasks
 - `sys_reefer*.csv`: reefer inventory and type tables (loaded and validated; not yet optimized in the MVP)
+- `tugboat_E_demand.json` + `tugboat_Emin.json`: tugboat charger group-level energy requests (ISO timestamps + E / Emin), parsed into optimization time windows
 
 ## Where to extend
 - Upgrade network constraints: implement LinDistFlow in `model/` and return `V_bus` not equal to 1.0
